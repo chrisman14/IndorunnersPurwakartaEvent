@@ -217,17 +217,27 @@ export default function EventsPage() {
                   </div>
                   
                   <div className="flex space-x-2">
-                    <Button variant="outline" size="sm" className="flex-1" disabled>
-                      Lihat Detail (Segera)
-                    </Button>
+                    <Link href={`/events/${event.id}`} className="flex-1">
+                      <Button variant="outline" size="sm" className="w-full">
+                        Lihat Detail
+                      </Button>
+                    </Link>
                     
-                    <Button 
-                      size="sm"
-                      className="flex-1"
-                      disabled
-                    >
-                      Daftar Sekarang (Segera)
-                    </Button>
+                    {isRegistrationOpen(event) && !isEventFull(event) ? (
+                      <Link href={`/events/${event.id}/register`} className="flex-1">
+                        <Button size="sm" className="w-full">
+                          Daftar Sekarang
+                        </Button>
+                      </Link>
+                    ) : (
+                      <Button 
+                        size="sm"
+                        className="flex-1"
+                        disabled
+                      >
+                        {!isRegistrationOpen(event) ? 'Pendaftaran Ditutup' : 'Event Penuh'}
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>

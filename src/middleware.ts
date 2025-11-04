@@ -10,6 +10,7 @@ export async function middleware(request: NextRequest) {
       pathname === '/' ||
       pathname.startsWith('/auth/') ||
       pathname.startsWith('/admin/setup') ||
+      pathname.startsWith('/events') ||
       pathname.startsWith('/_next/') ||
       pathname.startsWith('/api/_next/') ||
       pathname.includes('.')) {
@@ -19,7 +20,6 @@ export async function middleware(request: NextRequest) {
   // Require auth for protected routes
   if (pathname.startsWith('/dashboard') ||
       pathname.startsWith('/admin/') ||
-      pathname.startsWith('/events') ||
       pathname.startsWith('/attendance')) {
     if (!token) {
       return NextResponse.redirect(new URL('/auth/signin', request.url));
