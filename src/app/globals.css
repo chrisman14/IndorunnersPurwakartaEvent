@@ -38,15 +38,10 @@ body {
   /* Mobile touch improvements */
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  -khtml-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
 }
 
-/* Enable text selection for inputs and content areas */
-input, textarea, [contenteditable] {
+/* Enable text selection for interactive elements */
+input, textarea, button, label, [contenteditable], p, div, span {
   -webkit-user-select: text;
   -khtml-user-select: text;
   -moz-user-select: text;
@@ -101,4 +96,49 @@ input, textarea, [contenteditable] {
   textarea {
     font-size: 16px;
   }
+}
+
+/* Ensure buttons are always visible */
+button {
+  background-color: #4A70A9 !important;
+  color: white !important;
+  border: none !important;
+  padding: 0.5rem 1rem !important;
+  border-radius: 0.375rem !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+button:hover {
+  background-color: #3d5d8f !important;
+}
+
+button:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+
+/* Ensure text inputs are always visible */
+input[type="email"],
+input[type="password"],
+input[type="text"] {
+  background-color: white !important;
+  border: 1px solid #8FABD4 !important;
+  color: #000000 !important;
+  padding: 0.5rem 0.75rem !important;
+  border-radius: 0.375rem !important;
+  width: 100% !important;
+}
+
+input::placeholder {
+  color: #737373 !important;
+}
+
+/* Ensure labels are visible */
+label {
+  color: #404040 !important;
+  font-weight: 500 !important;
+  display: block !important;
+  margin-bottom: 0.25rem !important;
 }

@@ -45,24 +45,29 @@ export default function SignInPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-[70vh] sm:min-h-[80vh] px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-xl sm:text-2xl">Login Admin</CardTitle>
-          <CardDescription className="text-sm">
+    <div className="flex items-center justify-center min-h-[70vh] sm:min-h-[80vh] px-4 bg-secondary-50">
+      <Card className="w-full max-w-md shadow-lg">
+        <CardHeader className="space-y-1 text-center">
+          <div className="mx-auto w-12 h-12 bg-primary-500 rounded-lg flex items-center justify-center mb-4">
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <CardTitle className="text-xl sm:text-2xl text-neutral-900">Login Admin</CardTitle>
+          <CardDescription className="text-sm text-neutral-600">
             Login khusus administrator Indorunners Purwakarta
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-md">
+              <div className="text-red-600 text-sm text-center bg-red-50 border border-red-200 p-3 rounded-md">
                 {error}
               </div>
             )}
             
             <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">
+              <label htmlFor="email" className="text-sm font-medium text-neutral-700">
                 Email Admin
               </label>
               <Input
@@ -77,7 +82,7 @@ export default function SignInPage() {
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
+              <label htmlFor="password" className="text-sm font-medium text-neutral-700">
                 Password Admin
               </label>
               <Input
@@ -93,7 +98,7 @@ export default function SignInPage() {
 
             <Button 
               type="submit" 
-              className="w-full" 
+              className="w-full bg-primary-500 hover:bg-primary-600 text-white font-medium" 
               disabled={isLoading}
             >
               {isLoading ? 'Masuk...' : 'Masuk sebagai Admin'}
@@ -101,7 +106,7 @@ export default function SignInPage() {
           </form>
 
           <div className="mt-6 text-center text-sm">
-            <div className="text-muted-foreground">
+            <div className="text-neutral-500">
               Sistem login khusus untuk administrator Indorunners Purwakarta
             </div>
           </div>
