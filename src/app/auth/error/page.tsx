@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,7 +23,7 @@ const errorMessages: Record<string, string> = {
   SessionRequired: 'Anda harus login untuk mengakses halaman ini.',
 };
 
-export default function AuthErrorPage() {
+function AuthErrorContent() {
   const searchParams = useSearchParams();
   const [errorType, setErrorType] = useState<string>('');
 
@@ -84,5 +84,27 @@ export default function AuthErrorPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function AuthErrorPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[70vh] sm:min-h-[80vh] px-4 bg-secondary-50">
+        <Card className="w-full max-w-md shadow-lg">
+          <CardHeader className="space-y-1 text-center">
+            <div className="mx-auto w-12 h-12 bg-gray-300 rounded-lg flex items-center justify-center mb-4 animate-pulse">
+              <div className="w-6 h-6 bg-gray-400 rounded"></div>
+            </div>
+            <CardTitle className="text-xl sm:text-2xl text-neutral-900">Loading...</CardTitle>
+            <CardDescription className="text-sm text-neutral-600">
+              Memuat informasi kesalahan...
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    }>
+      <AuthErrorContent />
+    </Suspense>
   );
 }
