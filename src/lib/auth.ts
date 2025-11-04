@@ -13,6 +13,7 @@ const config = {
       },
       async authorize(credentials: any) {
         if (!credentials?.email || !credentials?.password) {
+          console.log('Missing credentials');
           return null;
         }
 
@@ -31,6 +32,7 @@ const config = {
           });
 
           if (!user) {
+            console.log('User not found:', credentials.email);
             return null;
           }
 
@@ -40,9 +42,11 @@ const config = {
           );
 
           if (!isPasswordValid) {
+            console.log('Invalid password for user:', credentials.email);
             return null;
           }
 
+          console.log('User authenticated successfully:', user.email);
           return {
             id: user.id,
             email: user.email,
@@ -73,10 +77,13 @@ const config = {
   },
   pages: {
     signIn: '/auth/signin',
+    error: '/auth/signin', // Redirect errors back to sign in
   },
   session: {
     strategy: 'jwt' as const,
   },
+  secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === 'development',
 };
 
 export const { handlers, auth, signIn, signOut } = NextAuth(config);
