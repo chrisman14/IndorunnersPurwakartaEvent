@@ -7,17 +7,22 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:setup": "node -e \"require('./src/lib/db.js').createTables()\""
+    "db:setup": "prisma generate && prisma db push",
+    "db:seed": "node -e \"require('./src/lib/db.js').createAdminUser()\"",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
     "@auth/pg-adapter": "^1.11.1",
+    "@prisma/client": "^6.18.0",
     "@types/bcryptjs": "^2.4.6",
     "@vercel/postgres": "^0.10.0",
     "bcryptjs": "^3.0.2",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.2.3",
     "next": "16.0.1",
     "next-auth": "^5.0.0-beta.30",
+    "prisma": "^6.18.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "tailwind-merge": "^3.3.1"

@@ -1,98 +1,142 @@
-import { sql } from '@vercel/postgres';
+import { prisma } from './prisma';
 
-export async function createTables() {
+// Mock data untuk development tanpa database
+export const mockEvents = [
+  {
+    id: '1',
+    title: 'Purwakarta Morning Run',
+    description: 'Lari pagi rutin di area Taman Kota Purwakarta untuk menjaga kesehatan dan kebugaran bersama komunitas.',
+    date: new Date('2024-12-15T06:00:00'),
+    location: 'Taman Kota Purwakarta',
+    maxParticipants: 50,
+    registrationFee: 25000,
+    status: 'active',
+    createdAt: new Date('2024-11-01T00:00:00'),
+    registrations: []
+  },
+  {
+    id: '2', 
+    title: 'Trail Running Situ Wanayasa',
+    description: 'Petualangan trail running di kawasan Situ Wanayasa dengan pemandangan alam yang indah.',
+    date: new Date('2024-12-22T07:00:00'),
+    location: 'Situ Wanayasa, Purwakarta',
+    maxParticipants: 30,
+    registrationFee: 50000,
+    status: 'active',
+    createdAt: new Date('2024-11-05T00:00:00'),
+    registrations: []
+  },
+  {
+    id: '3',
+    title: 'Fun Run Keluarga',
+    description: 'Acara lari santai untuk seluruh keluarga dengan berbagai kategori jarak.',
+    date: new Date('2025-01-05T08:00:00'),
+    location: 'Alun-alun Purwakarta',
+    maxParticipants: 100,
+    registrationFee: 35000,
+    status: 'active',
+    createdAt: new Date('2024-11-10T00:00:00'),
+    registrations: []
+  }
+];
+
+// Database operations with Prisma
+export async function createAdminUser() {
   try {
-    // Users table
-    await sql`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        name VARCHAR(255) NOT NULL,
-        password VARCHAR(255) NOT NULL,
-        role VARCHAR(50) DEFAULT 'user',
-        phone VARCHAR(20),
-        date_of_birth DATE,
-        gender VARCHAR(10),
-        emergency_contact VARCHAR(255),
-        emergency_phone VARCHAR(20),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `;
+    const adminExists = await prisma.user.findUnique({
+      where: { email: 'admin@indorunners.com' }
+    });
 
-    // Events table
-    await sql`
-      CREATE TABLE IF NOT EXISTS events (
-        id SERIAL PRIMARY KEY,
-        title VARCHAR(255) NOT NULL,
-        description TEXT,
-        event_date TIMESTAMP NOT NULL,
-        registration_deadline TIMESTAMP NOT NULL,
-        location VARCHAR(255) NOT NULL,
-        max_participants INTEGER,
-        registration_fee DECIMAL(10,2) DEFAULT 0,
-        category VARCHAR(100),
-        distance VARCHAR(50),
-        image_url VARCHAR(500),
-        status VARCHAR(50) DEFAULT 'active',
-        created_by INTEGER REFERENCES users(id),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `;
-
-    // Event registrations table
-    await sql`
-      CREATE TABLE IF NOT EXISTS event_registrations (
-        id SERIAL PRIMARY KEY,
-        event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        status VARCHAR(50) DEFAULT 'registered',
-        payment_status VARCHAR(50) DEFAULT 'pending',
-        bib_number VARCHAR(20),
-        shirt_size VARCHAR(10),
-        special_needs TEXT,
-        UNIQUE(event_id, user_id)
-      )
-    `;
-
-    // Activities table (for routine activities)
-    await sql`
-      CREATE TABLE IF NOT EXISTS activities (
-        id SERIAL PRIMARY KEY,
-        title VARCHAR(255) NOT NULL,
-        description TEXT,
-        activity_date TIMESTAMP NOT NULL,
-        location VARCHAR(255) NOT NULL,
-        activity_type VARCHAR(100) DEFAULT 'routine',
-        max_participants INTEGER,
-        status VARCHAR(50) DEFAULT 'active',
-        created_by INTEGER REFERENCES users(id),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `;
-
-    // Attendance table
-    await sql`
-      CREATE TABLE IF NOT EXISTS attendance (
-        id SERIAL PRIMARY KEY,
-        activity_id INTEGER REFERENCES activities(id) ON DELETE CASCADE,
-        event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        attendance_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        status VARCHAR(50) DEFAULT 'present',
-        notes TEXT,
-        CHECK ((activity_id IS NOT NULL AND event_id IS NULL) OR (activity_id IS NULL AND event_id IS NOT NULL))
-      )
-    `;
-
-    console.log('Database tables created successfully');
+    if (!adminExists) {
+      const bcrypt = require('bcryptjs');
+      const hashedPassword = await bcrypt.hash('admin123', 10);
+      
+      await prisma.user.create({
+        data: {
+          email: 'admin@indorunners.com',
+          name: 'Admin Indorunners',
+          password: hashedPassword,
+          role: 'admin'
+        }
+      });
+      
+      console.log('Admin user created successfully');
+    }
   } catch (error) {
-    console.error('Error creating tables:', error);
+    console.error('Error creating admin user:', error);
+    // Don't throw error, just log it for development
+  }
+}
+
+// Get events (with fallback to mock data)
+export async function getEvents() {
+  try {
+    const events = await prisma.event.findMany({
+      include: {
+        registrations: true,
+        createdBy: {
+          select: {
+            name: true,
+            email: true
+          }
+        }
+      },
+      orderBy: {
+        date: 'asc'
+      }
+    });
+    
+    return events;
+  } catch (error) {
+    console.error('Database error, using mock data:', error);
+    return mockEvents;
+  }
+}
+
+// Get event by ID
+export async function getEventById(id: string) {
+  try {
+    const event = await prisma.event.findUnique({
+      where: { id },
+      include: {
+        registrations: true,
+        createdBy: {
+          select: {
+            name: true,
+            email: true
+          }
+        }
+      }
+    });
+    
+    return event;
+  } catch (error) {
+    console.error('Database error:', error);
+    return mockEvents.find(event => event.id === id) || null;
+  }
+}
+
+// Create event registration
+export async function createEventRegistration(eventId: string, registrationData: any) {
+  try {
+    const registration = await prisma.registration.create({
+      data: {
+        eventId,
+        fullName: registrationData.fullName,
+        email: registrationData.email,
+        phone: registrationData.phone,
+        emergencyContact: registrationData.emergencyContact,
+        medicalInfo: registrationData.medicalInfo,
+        paymentProof: registrationData.paymentProof,
+        status: 'pending'
+      }
+    });
+    
+    return registration;
+  } catch (error) {
+    console.error('Error creating registration:', error);
     throw error;
   }
 }
 
-export { sql };
+export { prisma };
