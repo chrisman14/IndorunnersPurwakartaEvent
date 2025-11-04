@@ -61,7 +61,7 @@ export function Navigation() {
               </>
             ) : (
               <div className="hidden md:flex space-x-2">
-                <Link href="/admin/login">
+                <Link href="/auth/signin">
                   <Button variant="outline" size="sm" className="border-primary-300 text-primary-600 hover:bg-primary-50 hover:text-primary-700">
                     Login Admin
                   </Button>
@@ -147,7 +147,7 @@ export function Navigation() {
                 </>
               ) : (
                 <Link 
-                  href="/admin/login"
+                  href="/auth/signin"
                   className="block px-3 py-2 rounded-md text-base font-medium text-primary-500 hover:text-primary-600 hover:bg-white border-t border-primary-200 transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >

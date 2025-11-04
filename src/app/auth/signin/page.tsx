@@ -34,8 +34,7 @@ export default function SignInPage() {
         if (session?.user.role === 'admin') {
           router.push('/admin/dashboard');
         } else {
-          // Redirect user to events page to see available events
-          router.push('/events');
+          setError('Akses ditolak. Anda tidak memiliki akses administrator.');
         }
       }
     } catch (error) {
@@ -49,9 +48,9 @@ export default function SignInPage() {
     <div className="flex items-center justify-center min-h-[70vh] sm:min-h-[80vh] px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-xl sm:text-2xl">Masuk</CardTitle>
+          <CardTitle className="text-xl sm:text-2xl">Login Admin</CardTitle>
           <CardDescription className="text-sm">
-            Masuk ke akun Anda untuk mengakses sistem
+            Login khusus administrator Indorunners Purwakarta
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -64,7 +63,7 @@ export default function SignInPage() {
             
             <div className="space-y-2">
               <label htmlFor="email" className="text-sm font-medium">
-                Email
+                Email Admin
               </label>
               <Input
                 id="email"
@@ -72,14 +71,14 @@ export default function SignInPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                placeholder="email@contoh.com"
+                placeholder="admin@indorunners.com"
                 className="w-full"
               />
             </div>
 
             <div className="space-y-2">
               <label htmlFor="password" className="text-sm font-medium">
-                Password
+                Password Admin
               </label>
               <Input
                 id="password"
@@ -87,7 +86,7 @@ export default function SignInPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                placeholder="Password Anda"
+                placeholder="Password admin"
                 className="w-full"
               />
             </div>
@@ -97,21 +96,13 @@ export default function SignInPage() {
               className="w-full" 
               disabled={isLoading}
             >
-              {isLoading ? 'Masuk...' : 'Masuk'}
+              {isLoading ? 'Masuk...' : 'Masuk sebagai Admin'}
             </Button>
           </form>
 
-          <div className="mt-6 text-center text-sm space-y-2">
-            <div>
-              Belum punya akun?{' '}
-              <Link href="/auth/signup" className="text-primary hover:underline font-medium">
-                Daftar akun baru di sini
-              </Link>
-            </div>
-            <div className="pt-2 border-t">
-              <Link href="/admin/login" className="text-xs text-muted-foreground hover:text-primary">
-                Masuk sebagai Admin →
-              </Link>
+          <div className="mt-6 text-center text-sm">
+            <div className="text-muted-foreground">
+              Sistem login khusus untuk administrator Indorunners Purwakarta
             </div>
           </div>
         </CardContent>
