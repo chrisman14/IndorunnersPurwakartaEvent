@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { sql } from '@vercel/postgres';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,11 +25,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already exists
-    const existingUser = await sql`
-      SELECT id FROM users WHERE email = ${email}
-    `;
+    const existingUser = await prisma.user.findUnique({
+      where: { email }
+    });
 
-    if (existingUser.rows.length > 0) {
+    if (existingUser) {
       return NextResponse.json(
         { error: 'User with this email already exists' },
         { status: 400 }
@@ -40,29 +40,24 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     // Create user
-    const result = await sql`
-      INSERT INTO users (
-        name, email, password, phone, date_of_birth, gender, 
-        emergency_contact, emergency_phone, role
-      )
-      VALUES (
-        ${name}, ${email}, ${hashedPassword}, ${phone || null}, 
-        ${dateOfBirth || null}, ${gender || null}, 
-        ${emergencyContact || null}, ${emergencyPhone || null}, 'user'
-      )
-      RETURNING id, name, email, role
-    `;
-
-    const user = result.rows[0];
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        role: 'user'
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true
+      }
+    });
 
     return NextResponse.json({
       message: 'User created successfully',
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
+      user,
     });
   } catch (error) {
     console.error('Registration error:', error);

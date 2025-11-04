@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@vercel/postgres';
+import { prisma } from '@/lib/prisma';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 
@@ -11,17 +11,12 @@ export async function POST(request: NextRequest) {
     const fullName = formData.get('full_name') as string;
     const email = formData.get('email') as string;
     const phone = formData.get('phone') as string;
-    const birthDate = formData.get('birth_date') as string;
-    const gender = formData.get('gender') as string;
-    const emergencyContactName = formData.get('emergency_contact_name') as string;
-    const emergencyContactPhone = formData.get('emergency_contact_phone') as string;
-    const tShirtSize = formData.get('t_shirt_size') as string;
-    const specialNeeds = formData.get('special_needs') as string;
+    const emergencyContact = formData.get('emergency_contact_name') as string;
+    const medicalInfo = formData.get('special_needs') as string;
     const paymentProof = formData.get('payment_proof') as File;
 
     // Validate required fields
-    if (!eventId || !fullName || !email || !phone || !birthDate || !gender || 
-        !emergencyContactName || !emergencyContactPhone || !tShirtSize) {
+    if (!eventId || !fullName || !email || !phone) {
       return NextResponse.json(
         { error: 'Semua field wajib harus diisi' },
         { status: 400 }
@@ -38,32 +33,35 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if event exists and is active
-    const eventResult = await sql`
-      SELECT id, title, registration_deadline, max_participants, registration_fee,
-             (SELECT COUNT(*) FROM event_registrations WHERE event_id = events.id AND status != 'cancelled') as registered_count
-      FROM events 
-      WHERE id = ${eventId} AND status = 'active'
-    `;
+    const event = await prisma.event.findFirst({
+      where: {
+        id: eventId,
+        status: 'active'
+      },
+      include: {
+        _count: {
+          select: {
+            registrations: {
+              where: {
+                status: {
+                  not: 'cancelled'
+                }
+              }
+            }
+          }
+        }
+      }
+    });
 
-    if (eventResult.rows.length === 0) {
+    if (!event) {
       return NextResponse.json(
         { error: 'Event tidak ditemukan atau tidak aktif' },
         { status: 404 }
       );
     }
 
-    const event = eventResult.rows[0];
-    
-    // Check if registration is still open
-    if (new Date() > new Date(event.registration_deadline)) {
-      return NextResponse.json(
-        { error: 'Pendaftaran sudah ditutup' },
-        { status: 400 }
-      );
-    }
-
     // Check if event is full
-    if (event.max_participants && event.registered_count >= event.max_participants) {
+    if (event.maxParticipants && event._count.registrations >= event.maxParticipants) {
       return NextResponse.json(
         { error: 'Event sudah penuh' },
         { status: 400 }
@@ -71,12 +69,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Check for duplicate email
-    const duplicateCheck = await sql`
-      SELECT id FROM event_registrations 
-      WHERE event_id = ${eventId} AND email = ${email} AND status != 'cancelled'
-    `;
+    const existingRegistration = await prisma.registration.findFirst({
+      where: {
+        eventId: eventId,
+        email: email,
+        status: {
+          not: 'cancelled'
+        }
+      }
+    });
 
-    if (duplicateCheck.rows.length > 0) {
+    if (existingRegistration) {
       return NextResponse.json(
         { error: 'Email sudah terdaftar untuk event ini' },
         { status: 400 }
@@ -127,30 +130,24 @@ export async function POST(request: NextRequest) {
       await writeFile(fullPath, buffer);
     }
 
-    // Generate registration ID
-    const registrationId = `REG${eventId}${Date.now().toString().slice(-6)}`;
-
-    // Insert registration
-    const insertResult = await sql`
-      INSERT INTO event_registrations (
-        event_id, registration_id, full_name, email, phone, birth_date, gender,
-        emergency_contact_name, emergency_contact_phone, t_shirt_size, 
-        special_needs, payment_proof_url, status, registered_at
-      ) VALUES (
-        ${eventId}, ${registrationId}, ${fullName}, ${email}, ${phone}, ${birthDate}, ${gender},
-        ${emergencyContactName}, ${emergencyContactPhone}, ${tShirtSize},
-        ${specialNeeds || ''}, ${paymentProofPath || ''}, 
-        ${event.registration_fee > 0 ? 'pending_payment' : 'confirmed'}, 
-        NOW()
-      ) RETURNING id
-    `;
-
-    const newRegistration = insertResult.rows[0];
+    // Create registration
+    const registration = await prisma.registration.create({
+      data: {
+        eventId,
+        fullName,
+        email,
+        phone,
+        emergencyContact,
+        medicalInfo: medicalInfo || null,
+        paymentProof: paymentProofPath,
+        status: event.registrationFee && Number(event.registrationFee) > 0 ? 'pending' : 'confirmed'
+      }
+    });
 
     return NextResponse.json({
       success: true,
-      registration_id: registrationId,
-      message: event.registration_fee > 0 
+      registration_id: registration.id,
+      message: event.registrationFee && Number(event.registrationFee) > 0
         ? 'Pendaftaran berhasil! Menunggu verifikasi pembayaran dari admin.'
         : 'Pendaftaran berhasil dikonfirmasi!'
     });
