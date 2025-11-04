@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { sql } from '@vercel/postgres';
+import { prisma } from '@/lib/prisma';
 
 export async function GET() {
   try {
@@ -13,34 +13,41 @@ export async function GET() {
       );
     }
 
-    const result = await sql`
-      SELECT 
-        er.id,
-        er.registration_id,
-        er.event_id,
-        e.title as event_title,
-        e.event_date,
-        e.registration_fee,
-        er.full_name,
-        er.email,
-        er.phone,
-        er.birth_date,
-        er.gender,
-        er.emergency_contact_name,
-        er.emergency_contact_phone,
-        er.t_shirt_size,
-        er.special_needs,
-        er.payment_proof_url,
-        er.status,
-        er.registered_at
-      FROM event_registrations er
-      JOIN events e ON er.event_id = e.id
-      WHERE er.full_name IS NOT NULL
-      ORDER BY er.registered_at DESC
-    `;
+    const registrations = await prisma.registration.findMany({
+      include: {
+        event: {
+          select: {
+            title: true,
+            date: true,
+            registrationFee: true
+          }
+        }
+      },
+      orderBy: {
+        registeredAt: 'desc'
+      }
+    });
+
+    // Transform to match expected format
+    const registrationsFormatted = registrations.map(reg => ({
+      id: reg.id,
+      registration_id: reg.id, // Compatibility
+      event_id: reg.eventId,
+      event_title: reg.event.title,
+      event_date: reg.event.date,
+      registration_fee: reg.event.registrationFee,
+      full_name: reg.fullName,
+      email: reg.email,
+      phone: reg.phone,
+      emergency_contact_name: reg.emergencyContact,
+      special_needs: reg.medicalInfo,
+      payment_proof_url: reg.paymentProof,
+      status: reg.status,
+      registered_at: reg.registeredAt
+    }));
 
     return NextResponse.json({
-      registrations: result.rows
+      registrations: registrationsFormatted
     });
 
   } catch (error) {
@@ -73,7 +80,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Validate status
-    const validStatuses = ['pending_payment', 'confirmed', 'cancelled', 'payment_verified'];
+    const validStatuses = ['pending', 'confirmed', 'cancelled'];
     if (!validStatuses.includes(status)) {
       return NextResponse.json(
         { error: 'Invalid status' },
@@ -81,11 +88,14 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    await sql`
-      UPDATE event_registrations 
-      SET status = ${status}, updated_at = NOW()
-      WHERE id = ${registration_id}
-    `;
+    await prisma.registration.update({
+      where: {
+        id: registration_id
+      },
+      data: {
+        status: status
+      }
+    });
 
     return NextResponse.json({
       success: true,

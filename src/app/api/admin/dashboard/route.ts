@@ -1,55 +1,64 @@
 import { NextResponse } from 'next/server';
-import { sql } from '@vercel/postgres';
+import { prisma } from '@/lib/prisma';
 
 export async function GET() {
   try {
-    // Get total events
-    const eventsResult = await sql`
-      SELECT COUNT(*) as count FROM events WHERE created_at > NOW() - INTERVAL '1 year'
-    `;
-    const totalEvents = parseInt(eventsResult.rows[0].count);
+    // Get total events (past year)
+    const totalEvents = await prisma.event.count({
+      where: {
+        createdAt: {
+          gte: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000) // 1 year ago
+        }
+      }
+    });
 
     // Get total registrations
-    const registrationsResult = await sql`
-      SELECT COUNT(*) as count FROM event_registrations WHERE full_name IS NOT NULL
-    `;
-    const totalRegistrations = parseInt(registrationsResult.rows[0].count);
+    const totalRegistrations = await prisma.registration.count();
 
     // Get pending registrations
-    const pendingResult = await sql`
-      SELECT COUNT(*) as count FROM event_registrations 
-      WHERE status = 'pending_payment' AND full_name IS NOT NULL
-    `;
-    const pendingRegistrations = parseInt(pendingResult.rows[0].count);
+    const pendingRegistrations = await prisma.registration.count({
+      where: {
+        status: 'pending'
+      }
+    });
 
     // Get confirmed registrations
-    const confirmedResult = await sql`
-      SELECT COUNT(*) as count FROM event_registrations 
-      WHERE status = 'confirmed' AND full_name IS NOT NULL
-    `;
-    const confirmedRegistrations = parseInt(confirmedResult.rows[0].count);
+    const confirmedRegistrations = await prisma.registration.count({
+      where: {
+        status: 'confirmed'
+      }
+    });
 
-    // Get recent registrations
-    const recentResult = await sql`
-      SELECT 
-        er.id,
-        er.full_name,
-        e.title as event_title,
-        er.status,
-        er.registered_at
-      FROM event_registrations er
-      JOIN events e ON er.event_id = e.id
-      WHERE er.full_name IS NOT NULL
-      ORDER BY er.registered_at DESC
-      LIMIT 5
-    `;
+    // Get recent registrations with event details
+    const recentRegistrations = await prisma.registration.findMany({
+      take: 5,
+      orderBy: {
+        registeredAt: 'desc'
+      },
+      include: {
+        event: {
+          select: {
+            title: true
+          }
+        }
+      }
+    });
+
+    // Transform to match expected format
+    const recentRegistrationsFormatted = recentRegistrations.map(reg => ({
+      id: reg.id,
+      full_name: reg.fullName,
+      event_title: reg.event.title,
+      status: reg.status,
+      registered_at: reg.registeredAt
+    }));
 
     return NextResponse.json({
       totalEvents,
       totalRegistrations,
       pendingRegistrations,
       confirmedRegistrations,
-      recentRegistrations: recentResult.rows,
+      recentRegistrations: recentRegistrationsFormatted,
     });
 
   } catch (error) {

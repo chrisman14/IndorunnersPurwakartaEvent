@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@vercel/postgres';
+import { prisma } from '@/lib/prisma';
 import { getToken } from 'next-auth/jwt';
 
 export async function GET(request: NextRequest) {
@@ -13,20 +13,37 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || 'active';
     
-    const result = await sql`
-      SELECT 
-        a.*,
-        u.name as created_by_name,
-        COUNT(at.id) as attendance_count
-      FROM activities a
-      LEFT JOIN users u ON a.created_by = u.id
-      LEFT JOIN attendance at ON a.id = at.activity_id AND at.status = 'present'
-      WHERE a.status = ${status}
-      GROUP BY a.id, u.name
-      ORDER BY a.activity_date ASC
-    `;
+    const activities = await prisma.activity.findMany({
+      where: {
+        status: status
+      },
+      include: {
+        createdBy: {
+          select: {
+            name: true,
+            email: true
+          }
+        },
+        _count: {
+          select: {
+            attendances: true
+          }
+        }
+      },
+      orderBy: {
+        date: 'asc'
+      }
+    });
 
-    return NextResponse.json({ activities: result.rows });
+    // Transform to match expected format
+    const activitiesFormatted = activities.map(activity => ({
+      ...activity,
+      created_by_name: activity.createdBy.name,
+      attendance_count: activity._count.attendances,
+      activity_date: activity.date
+    }));
+
+    return NextResponse.json({ activities: activitiesFormatted });
   } catch (error) {
     console.error('Error fetching activities:', error);
     return NextResponse.json(
@@ -48,35 +65,39 @@ export async function POST(request: NextRequest) {
     const {
       title,
       description,
-      activity_date,
+      date,
       location,
-      activity_type,
-      max_participants,
+      type,
     } = body;
 
     // Validate required fields
-    if (!title || !activity_date || !location) {
+    if (!title || !date) {
       return NextResponse.json(
-        { error: 'Title, activity date, and location are required' },
+        { error: 'Title and date are required' },
         { status: 400 }
       );
     }
 
-    // Create activity
-    const result = await sql`
-      INSERT INTO activities (
-        title, description, activity_date, location, activity_type,
-        max_participants, created_by, status
-      )
-      VALUES (
-        ${title}, ${description || null}, ${activity_date}, ${location},
-        ${activity_type || 'routine'}, ${max_participants || null}, 
-        ${token.sub}, 'active'
-      )
-      RETURNING *
-    `;
-
-    const activity = result.rows[0];
+    // Create activity using Prisma
+    const activity = await prisma.activity.create({
+      data: {
+        title,
+        description: description || null,
+        date: new Date(date),
+        location: location || null,
+        type: type || 'routine',
+        createdById: token.sub!,
+        status: 'active'
+      },
+      include: {
+        createdBy: {
+          select: {
+            name: true,
+            email: true
+          }
+        }
+      }
+    });
 
     return NextResponse.json({
       message: 'Aktivitas berhasil dibuat',

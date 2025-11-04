@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@vercel/postgres';
+import { prisma } from '@/lib/prisma';
 import { getToken } from 'next-auth/jwt';
 
 interface RouteParams {
@@ -18,23 +18,46 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const { id: eventId } = await params;
     
-    const result = await sql`
-      SELECT 
-        e.*,
-        u.name as created_by_name,
-        COUNT(er.id) as registered_count
-      FROM events e
-      LEFT JOIN users u ON e.created_by = u.id
-      LEFT JOIN event_registrations er ON e.id = er.event_id AND er.status = 'registered'
-      WHERE e.id = ${eventId}
-      GROUP BY e.id, u.name
-    `;
+    const event = await prisma.event.findUnique({
+      where: {
+        id: eventId
+      },
+      include: {
+        createdBy: {
+          select: {
+            name: true,
+            email: true
+          }
+        },
+        _count: {
+          select: {
+            registrations: {
+              where: {
+                status: {
+                  in: ['confirmed', 'pending']
+                }
+              }
+            }
+          }
+        }
+      }
+    });
 
-    if (result.rows.length === 0) {
+    if (!event) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ event: result.rows[0] });
+    // Transform to match expected format
+    const eventFormatted = {
+      ...event,
+      created_by_name: event.createdBy.name,
+      registered_count: event._count.registrations,
+      event_date: event.date,
+      max_participants: event.maxParticipants,
+      registration_fee: event.registrationFee
+    };
+
+    return NextResponse.json({ event: eventFormatted });
   } catch (error) {
     console.error('Error fetching event:', error);
     return NextResponse.json(
@@ -57,50 +80,50 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const {
       title,
       description,
-      event_date,
-      registration_deadline,
+      date,
       location,
-      max_participants,
-      registration_fee,
-      category,
-      distance,
-      image_url,
+      maxParticipants,
+      registrationFee,
       status,
     } = body;
 
-    // Update event
-    const result = await sql`
-      UPDATE events
-      SET 
-        title = ${title},
-        description = ${description || null},
-        event_date = ${event_date},
-        registration_deadline = ${registration_deadline},
-        location = ${location},
-        max_participants = ${max_participants || null},
-        registration_fee = ${registration_fee || 0},
-        category = ${category || null},
-        distance = ${distance || null},
-        image_url = ${image_url || null},
-        status = ${status || 'active'},
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = ${eventId} AND created_by = ${token.sub}
-      RETURNING *
-    `;
+    // Update event using Prisma
+    const event = await prisma.event.update({
+      where: {
+        id: eventId,
+        createdById: token.sub! // Ensure only creator can update
+      },
+      data: {
+        title,
+        description: description || null,
+        date: date ? new Date(date) : undefined,
+        location,
+        maxParticipants: maxParticipants || null,
+        registrationFee: registrationFee || 0,
+        status: status || 'active'
+      },
+      include: {
+        createdBy: {
+          select: {
+            name: true,
+            email: true
+          }
+        }
+      }
+    });
 
-    if (result.rows.length === 0) {
+    return NextResponse.json({
+      message: 'Event berhasil diupdate',
+      event,
+    });
+  } catch (error: any) {
+    console.error('Error updating event:', error);
+    if (error.code === 'P2025') {
       return NextResponse.json(
         { error: 'Event not found or unauthorized' },
         { status: 404 }
       );
     }
-
-    return NextResponse.json({
-      message: 'Event berhasil diupdate',
-      event: result.rows[0],
-    });
-  } catch (error) {
-    console.error('Error updating event:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -118,25 +141,25 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     const { id: eventId } = await params;
     
-    // Delete event (cascades to registrations)
-    const result = await sql`
-      DELETE FROM events
-      WHERE id = ${eventId} AND created_by = ${token.sub}
-      RETURNING *
-    `;
+    // Delete event using Prisma (cascades to registrations due to onDelete: Cascade)
+    await prisma.event.delete({
+      where: {
+        id: eventId,
+        createdById: token.sub! // Ensure only creator can delete
+      }
+    });
 
-    if (result.rows.length === 0) {
+    return NextResponse.json({
+      message: 'Event berhasil dihapus',
+    });
+  } catch (error: any) {
+    console.error('Error deleting event:', error);
+    if (error.code === 'P2025') {
       return NextResponse.json(
         { error: 'Event not found or unauthorized' },
         { status: 404 }
       );
     }
-
-    return NextResponse.json({
-      message: 'Event berhasil dihapus',
-    });
-  } catch (error) {
-    console.error('Error deleting event:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
